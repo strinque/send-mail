@@ -90,10 +90,8 @@ int main(int argc, char** argv)
     if (smtp_username.empty() && !smtp_password.empty() ||
         !smtp_username.empty() && smtp_password.empty())
       throw std::runtime_error("--smtp-username must be defined with --smtp-password");
-    if (!std::filesystem::exists(email_file))
-      throw std::runtime_error(fmt::format("invalid attached file: \"{}\"", email_file.string()));
-    if (dst_name.size() != dst_email.size())
-      throw std::runtime_error("invalid number of dst-name/dst-email - should match");
+    if (!email_file.empty() && !std::filesystem::exists(email_file))
+      throw std::runtime_error(fmt::format("invalid attached file: \"{}\"", email_file.u8string()));
 
     exec("sending email", [=]() {
       // construct email
