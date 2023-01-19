@@ -32,6 +32,8 @@ namespace details
     smtp_tls,
     src_name,
     src_email,
+    reply_name,
+    reply_email,
     dst_name,
     dst_email,
     email_title,
@@ -46,6 +48,8 @@ namespace details
     "smtp_tls",
     "src_name",
     "src_email",
+    "reply_name",
+    "reply_email",
     "dst_name",
     "dst_email",
     "email_title",
@@ -85,8 +89,10 @@ namespace option
   using smtp_tls = details::option_data<details::option_id::smtp_tls, bool>;
   using src_name = details::option_data<details::option_id::src_name, std::string>;
   using src_email = details::option_data<details::option_id::src_email, std::string>;
-  using dst_name = details::option_data<details::option_id::dst_name, std::string>;
-  using dst_email = details::option_data<details::option_id::dst_email, std::string>;
+  using reply_name = details::option_data<details::option_id::reply_name, std::string>;
+  using reply_email = details::option_data<details::option_id::reply_email, std::string>;
+  using dst_name = details::option_data<details::option_id::dst_name, std::vector<std::string>>;
+  using dst_email = details::option_data<details::option_id::dst_email, std::vector<std::string>>;
   using email_title = details::option_data<details::option_id::email_title, std::string>;
   using email_content = details::option_data<details::option_id::email_content, std::string>;
   using email_file = details::option_data<details::option_id::email_file, std::filesystem::path>;
@@ -95,12 +101,14 @@ namespace option
 namespace details
 {
   // variant which contains all the different options available
-  using OptionsVal = std::variant<option::smtp_server, option::smtp_username, option::smtp_password,
-                                  option::smtp_tls, option::src_name, option::src_email, option::dst_name,
-                                  option::dst_email, option::email_title, option::email_content, option::email_file>;
+  using OptionsVal = std::variant<option::smtp_server, option::smtp_username, option::smtp_password, option::smtp_tls, 
+                                  option::src_name, option::src_email, 
+                                  option::reply_name, option::reply_email, 
+                                  option::dst_name, option::dst_email, 
+                                  option::email_title, option::email_content, option::email_file>;
 
   // variant which contains all the different options data types
-  using OptionsType = std::variant<std::string, std::filesystem::path, bool>;
+  using OptionsType = std::variant<std::string, std::vector<std::string>, std::filesystem::path, bool>;
 
   // store all the different options
   class Options final
@@ -123,6 +131,10 @@ namespace details
           setArg(option_id::src_name, std::get<option::src_name>(o).arg);
         else if (std::holds_alternative<option::src_email>(o))
           setArg(option_id::src_email, std::get<option::src_email>(o).arg);
+        else if (std::holds_alternative<option::reply_name>(o))
+          setArg(option_id::reply_name, std::get<option::reply_name>(o).arg);
+        else if (std::holds_alternative<option::reply_email>(o))
+          setArg(option_id::reply_email, std::get<option::reply_email>(o).arg);
         else if (std::holds_alternative<option::dst_name>(o))
           setArg(option_id::dst_name, std::get<option::dst_name>(o).arg);
         else if (std::holds_alternative<option::dst_email>(o))
@@ -191,10 +203,10 @@ public:
     {
       // check that all mandatory options are set
       if (!m_options.hasArgs({ details::option_id::smtp_server,
-                         details::option_id::src_email,
-                         details::option_id::dst_email,
-                         details::option_id::email_title,
-                         details::option_id::email_content }))
+                               details::option_id::src_email,
+                               details::option_id::dst_email,
+                               details::option_id::email_title,
+                               details::option_id::email_content }))
       {
         throw std::runtime_error(fmt::format("missing at least one mandatory argument: \n{}{}{}{}{}",
           "  --smtp-server\n",
@@ -212,8 +224,10 @@ public:
       const bool smtp_tls = m_options.getArg<bool>(details::option_id::smtp_tls);
       const std::string& src_name = utf8::from_utf8(m_options.getArg<std::string>(details::option_id::src_name));
       const std::string& src_email = m_options.getArg<std::string>(details::option_id::src_email);
-      const std::string& dst_name = utf8::from_utf8(m_options.getArg<std::string>(details::option_id::dst_name));
-      const std::string& dst_email = m_options.getArg<std::string>(details::option_id::dst_email);
+      const std::string& reply_name = utf8::from_utf8(m_options.getArg<std::string>(details::option_id::reply_name));
+      const std::string& reply_email = m_options.getArg<std::string>(details::option_id::reply_email);
+      const std::vector<std::string>& dst_name = m_options.getArg<std::vector<std::string>>(details::option_id::dst_name);
+      const std::vector<std::string>& dst_email = m_options.getArg<std::vector<std::string>>(details::option_id::dst_email);
       const std::string& email_title = m_options.getArg<std::string>(details::option_id::email_title);
       const std::string& email_content = m_options.getArg<std::string>(details::option_id::email_content);
       const std::filesystem::path& email_file = m_options.getArg<std::filesystem::path>(details::option_id::email_file);
@@ -221,14 +235,23 @@ public:
       // check email validity
       if (!check_email(src_email))
         throw std::runtime_error(fmt::format("invalid src_email: \"{}\"", src_email));
-      if (!check_email(dst_email))
-        throw std::runtime_error(fmt::format("invalid dst-email: \"{}\"", dst_email));
+      if (!reply_email.empty() && !check_email(reply_email))
+        throw std::runtime_error(fmt::format("invalid reply_email: \"{}\"", reply_email));
+      for (const auto& e : dst_email)
+      {
+        if (!check_email(e))
+          throw std::runtime_error(fmt::format("invalid dst-email: \"{}\"", e));
+      }
 
       // construct mailio message
       mailio::message msg;
       msg.from(mailio::mail_address(src_name, src_email));
-      msg.reply_address(mailio::mail_address(src_name, src_email));
-      msg.add_recipient(mailio::mail_address(dst_name, dst_email));
+      if (reply_name.empty() && reply_email.empty())
+        msg.reply_address(mailio::mail_address(src_name, src_email));
+      else
+        msg.reply_address(mailio::mail_address(reply_name, reply_email));
+      for (int i = 0; i < dst_email.size(); ++i)
+        msg.add_recipient(mailio::mail_address((dst_name.size() == dst_email.size()) ? utf8::from_utf8(dst_name[i]): "", dst_email[i]));
       msg.subject(email_title);
       msg.content(email_content);
 

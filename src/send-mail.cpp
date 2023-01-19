@@ -53,8 +53,10 @@ int main(int argc, char** argv)
   // parse command-line arguments
   std::string src_name;
   std::string src_email;
-  std::string dst_name;
-  std::string dst_email;
+  std::string reply_name;
+  std::string reply_email;
+  std::vector<std::string> dst_name;
+  std::vector<std::string> dst_email;
   std::string smtp_server;
   std::string smtp_username;
   std::string smtp_password;
@@ -65,6 +67,8 @@ int main(int argc, char** argv)
   console::parser parser(PROGRAM_NAME, PROGRAM_VERSION);
   parser.add("n", "src-name", "name of the source address", src_name)
         .add("s", "src-email", "source of the email", src_email, true)
+        .add("a", "reply-name", "name of the reply address", reply_name)
+        .add("r", "reply-email", "reply email address", reply_email)
         .add("m", "dst-name", "name of the destination address", dst_name)
         .add("d", "dst-email", "destination of the email", dst_email, true)
         .add("x", "smtp-server", "smtp server address", smtp_server, true)
@@ -88,6 +92,8 @@ int main(int argc, char** argv)
       throw std::runtime_error("--smtp-username must be defined with --smtp-password");
     if (!std::filesystem::exists(email_file))
       throw std::runtime_error(fmt::format("invalid attached file: \"{}\"", email_file.string()));
+    if (dst_name.size() != dst_email.size())
+      throw std::runtime_error("invalid number of dst-name/dst-email - should match");
 
     exec("sending email", [=]() {
       // construct email
@@ -98,6 +104,8 @@ int main(int argc, char** argv)
         option::smtp_tls(smtp_tls),
         option::src_name(src_name),
         option::src_email(src_email),
+        option::reply_name(reply_name),
+        option::reply_email(reply_email),
         option::dst_name(dst_name),
         option::dst_email(dst_email),
         option::email_title(email_title),
