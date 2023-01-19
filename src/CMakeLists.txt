@@ -11,7 +11,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(SOURCE_FILES
   send-mail.cpp)
 set(HEADER_FILES
-  )
+  SendMail.hpp)
 set(RESOURCE_FILES
   resource.h
   Resource.rc)
