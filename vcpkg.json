@@ -2,9 +2,9 @@
     "name": "sendmail",
     "version": "1.0.0",
     "dependencies": [
-        "openssl",
-        "mailio",
-        "fmt",
-        "winpp"
+      "openssl",
+      "mailio",
+      "fmt",
+      "winpp"
     ]
 }
